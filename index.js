@@ -1,5 +1,6 @@
 const express = require('express');
 const morgan = require('morgan');
+const API = require('mongodb')
 // Define queues
 const fifoQueue = [];
 const priorityQueue = [];
