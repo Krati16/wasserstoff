@@ -1,33 +1,20 @@
+// Require necessary modules
 const express = require('express');
 const morgan = require('morgan');
-const API = require('mongodb')
-// Define queues
-const fifoQueue = [];
-const priorityQueue = [];
-let roundRobinIndex = 0;
 
-// Functions to manipulate queues (e.g., addToFifoQueue, getFromPriorityQueue)
+// Initialize Express application
+const app = express();
 
+// Middleware
+app.use(morgan('dev'));
 const PORT_LOAD_BALANCER = process.env.PORT || 4004;
 const PORT_REST_API = process.env.PORT_REST || 4001;
 const PORT_GRAPHQL_API = process.env.PORT_GRAPHQL || 4002;
 const PORT_GRPC_API = process.env.PORT_GRPC || 4003;
 
-const app = express();
+
+// Start the server
 const PORT = process.env.PORT || 4000;
-
-// Logging middleware
-app.use(morgan('dev'));
-// Logging metrics example
-function logMetrics() {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] FIFO Queue Length: ${fifoQueue.length}`);
-    console.log(`[${timestamp}] Priority Queue Length: ${priorityQueue.length}`);
-    console.log(`[${timestamp}] Round Robin Index: ${roundRobinIndex}`);
-    // Add more detailed logging as needed
-}
-
-setInterval(logMetrics, 5000); // Log metrics every 5 seconds
 
 // Route for REST API
 app.get('/rest-api', (req, res) => {
@@ -44,10 +31,37 @@ app.get('/grpc-api', (req, res) => {
     res.json({ message: 'gRPC API endpoint' });
 });
 
-// Start the server
+
+// Start the servers
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
+})
+app.listen(PORT_LOAD_BALANCER, () => {
+    console.log(`Load balancer is running on http://localhost:${PORT_LOAD_BALANCER}`);
 });
+
+app.listen(PORT_REST_API, () => {
+    console.log(`REST API is running on http://localhost:${PORT_REST_API}`);
+});
+
+app.listen(PORT_GRAPHQL_API, () => {
+    console.log(`GraphQL API is running on http://localhost:${PORT_GRAPHQL_API}`);
+});
+
+app.listen(PORT_GRPC_API, () => {
+    console.log(`gRPC API is running on http://localhost:${PORT_GRPC_API}`);
+});
+
+// Randomized routing middleware
+const apiEndpoints = ['/rest-api', '/graphql-api', '/grpc-api'];
+
+app.use((req, res, next) => {
+    const randomIndex = Math.floor(Math.random() * apiEndpoints.length);
+    const randomEndpoint = apiEndpoints[randomIndex];
+    req.url = randomEndpoint;
+    next();
+});
+// index.js (continued)
 
 // Slow response
 app.get('/slow-api', (req, res) => {
@@ -66,20 +80,6 @@ app.get('/error-api', (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// Route for REST API
-app.get('/rest-api', (req, res) => {
-    res.json({ message: 'REST API endpoint' });
-});
-
-// Route for GraphQL API
-app.get('/graphql-api', (req, res) => {
-    res.json({ message: 'GraphQL API endpoint' });
-});
-
-// Route for gRPC API
-app.get('/grpc-api', (req, res) => {
-    res.json({ message: 'gRPC API endpoint' });
-});
 
 // Custom logging middleware
 app.use((req, res, next) => {
@@ -95,39 +95,20 @@ app.use((req, res, next) => {
     next();
 });
 
-// Start the servers
-app.listen(PORT_LOAD_BALANCER, () => {
-    console.log(`Load balancer is running on http://localhost:${PORT_LOAD_BALANCER}`);
-});
 
-app.listen(PORT_REST_API, () => {
-    console.log(`REST API is running on http://localhost:${PORT_REST_API}`);
-});
 
-app.listen(PORT_GRAPHQL_API, () => {
-    console.log(`GraphQL API is running on http://localhost:${PORT_GRAPHQL_API}`);
-});
-
-app.listen(PORT_GRPC_API, () => {
-    console.log(`gRPC API is running on http://localhost:${PORT_GRPC_API}`);
-});
-
-// FIFO queue
-function getFromFifoQueue() {
-    return fifoQueue.shift();
+// Logging metrics example
+function logMetrics() {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] FIFO Queue Length: ${fifoQueue.length}`);
+    console.log(`[${timestamp}] Priority Queue Length: ${priorityQueue.length}`);
+    console.log(`[${timestamp}] Round Robin Index: ${roundRobinIndex}`);
+    // Add more detailed logging as needed
 }
 
-// Priority queue (assuming requests have a priority field)
-function getFromPriorityQueue() {
-    return priorityQueue.shift();
-}
+setInterval(logMetrics, 5000); // Log metrics every 5 seconds
 
-// Round-robin queue
-function getFromRoundRobinQueue() {
-    const req = fifoQueue[roundRobinIndex];
-    roundRobinIndex = (roundRobinIndex + 1) % fifoQueue.length;
-    return req;
-}
+
 // Request handler example
 function handleRequests() {
     const req = getFromPriorityQueue() || getFromFifoQueue() || getFromRoundRobinQueue();
@@ -155,3 +136,24 @@ function handleRequests() {
 
 // Example: Run handleRequests every second
 setInterval(handleRequests, 1000);
+// Define queues
+const fifoQueue = [];
+const priorityQueue = [];
+let roundRobinIndex = 0;
+
+// FIFO queue
+function getFromFifoQueue() {
+    return fifoQueue.shift();
+}
+
+// Priority queue (assuming requests have a priority field)
+function getFromPriorityQueue() {
+    return priorityQueue.shift();
+}
+
+// Round-robin queue
+function getFromRoundRobinQueue() {
+    const req = fifoQueue[roundRobinIndex];
+    roundRobinIndex = (roundRobinIndex + 1) % fifoQueue.length;
+    return req;
+}
